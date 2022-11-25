@@ -39,6 +39,7 @@ async function run() {
         const categoryCollection = client.db('buySell').collection('category')
         const bookingCollection = client.db('buySell').collection('booking')
         const usersCollection = client.db('buySell').collection('user')
+        const productsCollection = client.db('buySell').collection('product')
 
         app.get('/category/:id', async (req, res) => {
             const id = req.params.id;
@@ -91,6 +92,13 @@ async function run() {
             res.send(users);
         })
 
+        app.get('/users/admin/:email', async (req, res) => {
+            const email = req.params.email
+            const query = { email }
+            const user = await usersCollection.findOne(query);
+            res.send({ isAdmin: user?.role === 'admin' });
+        })
+
         app.put('/users/admin/:id', verifyJWT, async (req, res) => {
             const decodedEmail = req.decoded.email;
             const query = { email: decodedEmail }
@@ -99,7 +107,6 @@ async function run() {
             if (user?.role !== 'admin') {
                 return res.status(403).send({ message: 'Forbidden Access' })
             }
-
 
             const id = req.params.id;
             const filter = { _id: ObjectId(id) }
@@ -113,7 +120,17 @@ async function run() {
             res.send(result);
         });
 
+        app.post('/product', async (req, res) => {
+            const product = req.body;
+            const result = await productsCollection.insertOne(product)
+            res.send(result);
+        })
 
+        app.get('/product', async (req, res) => {
+            const query = {};
+            const product = await productsCollection.find(query).toArray();
+            res.send(product)
+        })
 
     }
     finally {
