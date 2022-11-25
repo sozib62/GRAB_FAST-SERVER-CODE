@@ -91,6 +91,28 @@ async function run() {
             res.send(users);
         })
 
+        app.put('/users/admin/:id', verifyJWT, async (req, res) => {
+            const decodedEmail = req.decoded.email;
+            const query = { email: decodedEmail }
+            const user = await usersCollection.findOne(query)
+
+            if (user?.role !== 'admin') {
+                return res.status(403).send({ message: 'Forbidden Access' })
+            }
+
+
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) }
+            const options = { upsert: true };
+            const updatedDoc = {
+                $set: {
+                    role: 'admin'
+                }
+            }
+            const result = await usersCollection.updateOne(filter, updatedDoc, options);
+            res.send(result);
+        });
+
 
 
     }
