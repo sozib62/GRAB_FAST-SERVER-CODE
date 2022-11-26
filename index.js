@@ -99,6 +99,19 @@ async function run() {
             res.send({ isAdmin: user?.role === 'admin' });
         })
 
+        app.get('/users/seller/:email', async (req, res) => {
+            const email = req.params.email
+            const query = { email }
+            const user = await usersCollection.findOne(query);
+            res.send({ seller: user?.role === 'Seller' });
+        })
+        app.get('/users/buyer/:email', async (req, res) => {
+            const email = req.params.email
+            const query = { email }
+            const user = await usersCollection.findOne(query);
+            res.send({ buyer: user?.role === 'Buyer' });
+        })
+
         app.put('/users/admin/:id', verifyJWT, async (req, res) => {
             const decodedEmail = req.decoded.email;
             const query = { email: decodedEmail }
@@ -130,6 +143,13 @@ async function run() {
             const query = {};
             const product = await productsCollection.find(query).toArray();
             res.send(product)
+        })
+
+        app.delete('/product/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) }
+            const result = await productsCollection.deleteOne(query);
+            res.send(result)
         })
 
     }
