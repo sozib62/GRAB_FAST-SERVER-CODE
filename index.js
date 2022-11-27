@@ -3,6 +3,7 @@ const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const port = process.env.PORT || 5000;
 
@@ -40,6 +41,8 @@ async function run() {
         const bookingCollection = client.db('buySell').collection('booking')
         const usersCollection = client.db('buySell').collection('user')
         const productsCollection = client.db('buySell').collection('product')
+        const paymentsCollection = client.db('buySell').collection('payments');
+        // const advertisesCollection = client.db('buySell').collection('advertise')
 
         app.get('/category/:id', async (req, res) => {
             const id = req.params.id;
@@ -48,10 +51,17 @@ async function run() {
             res.send(result);
         })
 
-        app.post('/bookings', async (req, res) => {
+        app.post('/bookings', verifyJWT, async (req, res) => {
             const booking = req.body;
             const result = await bookingCollection.insertOne(booking);
             res.send(result);
+        })
+
+        app.get('/bookings/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) }
+            const booking = await bookingCollection.findOne(query);
+            res.send(booking);
         })
 
         app.get('/bookings', verifyJWT, async (req, res) => {
@@ -67,6 +77,38 @@ async function run() {
             res.send(result);
         })
 
+        app.post('/create-payment', async (req, res) => {
+            const booking = req.body;
+            const price = booking.price;
+            const amount = price * 100;
+
+            const paymentIntent = await stripe.paymentIntents.create({
+                currency: 'usd',
+                amount: amount,
+                "payment_method_types": [
+                    "card"
+                ]
+            });
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+            });
+        });
+
+        app.post('/payments', async (req, res) => {
+            const payment = req.body;
+            const result = await paymentsCollection.insertOne(payment);
+            const id = payment.bookingId
+            const filter = { _id: ObjectId(id) }
+            const updatedDoc = {
+                $set: {
+                    paid: true,
+                    transactionId: payment.transactionId
+                }
+            }
+            const updatedResult = await bookingCollection.updateOne(filter, updatedDoc)
+            res.send(result);
+        })
+
         app.get('/jwt', async (req, res) => {
             const email = req.query.email;
             const query = { email: email }
@@ -79,6 +121,19 @@ async function run() {
 
             res.status(403).send('Forbidden Access')
         })
+
+        app.put('/users/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) }
+            const options = { upsert: true };
+            const updatedDoc = {
+                $set: {
+                    status: 'verified'
+                }
+            }
+            const result = await usersCollection.updateOne(filter, updatedDoc, options);
+            res.send(result);
+        });
 
         app.post('/users', async (req, res) => {
             const users = req.body;
@@ -158,8 +213,27 @@ async function run() {
             const result = await productsCollection.deleteOne(query);
             res.send(result)
         })
+        app.put('/advertise/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) }
+            const options = { upsert: true };
+            const updatedDoc = {
+                $set: {
+                    status: 'advertise'
+                }
+            }
+            const result = await productsCollection.updateOne(filter, updatedDoc, options);
+            res.send(result);
+        });
+
+        app.get('/advertise', async (req, res) => {
+            const query = {};
+            const result = await productsCollection.find(query).toArray()
+            res.send(result);
+        })
 
     }
+
     finally {
 
     }
